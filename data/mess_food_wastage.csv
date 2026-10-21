@@ -1,0 +1,11 @@
+date,meal_type,day_type,menu_type,students_present,food_prepared_kg,food_wasted_kg
+2026-10-01,Breakfast,Weekday,Idli,180,36,4.5
+2026-10-01,Lunch,Weekday,Rice and Sambar,200,80,12
+2026-10-01,Dinner,Weekday,Chapati,170,51,6
+2026-10-02,Breakfast,Weekday,Dosa,190,38,5
+2026-10-02,Lunch,Weekday,Vegetable Rice,210,84,10
+2026-10-02,Dinner,Weekday,Idiyappam,160,48,7
+2026-10-03,Breakfast,Weekend,Pongal,120,24,3
+2026-10-03,Lunch,Weekend,Biryani,150,60,8
+2026-10-03,Dinner,Weekend,Chapati,130,39,5
+2026-10-04,Breakfast,Weekend,Upma,110,22,2.5

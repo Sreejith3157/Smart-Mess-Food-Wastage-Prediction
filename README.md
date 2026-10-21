@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Smart Mess – Food Wastage Prediction and Analysis System
 
 A Flask web application that helps a hostel/college mess track food prepared vs. wasted, predict
@@ -164,3 +165,7 @@ Package versions in `requirements.txt` are minimums (`>=`); a very old Python ma
 * *"The saved model could not be loaded"* – scikit-learn was upgraded after training; retrain on Model performance.
 * *Forgot password* – stop the app, delete `outputs\smart_mess.db`, set `ADMIN_USERNAME`/`ADMIN_PASSWORD`, restart
   (this also clears prediction history).
+=======
+# Smart-Mess-Food-Wastage-Prediction
+A Flask-based Smart Mess Food Wastage Prediction and Analysis System that uses machine learning to predict food wastage, analyze mess datasets, visualize food consumption patterns, and generate reports to support food waste reduction.
+>>>>>>> 9a9ecc8b32adb99d32af679317d11c5bb6bce7c1
