@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Local configuration / secrets
+.env
+outputs/.secret_key
+
+# Generated at runtime (database, trained model, metrics, reports)
+outputs/*
+!outputs/.gitkeep
+
+# Dataset files (may contain private data). Generate demo data from the Dataset page.
+data/*
+!data/.gitkeep
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

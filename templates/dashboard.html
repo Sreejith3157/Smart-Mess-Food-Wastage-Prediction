@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Dashboard</h1>
+    <p>{% if summary %}{{ summary.totals.meals }} meals over {{ summary.totals.days }} days ({{ summary.totals.date_min }} to {{ summary.totals.date_max }}){% else %}Overview of food prepared, consumed and wasted{% endif %}</p></div>
+  <a class="btn btn-brand" href="{{ url_for('predict') }}"><i class="bi bi-magic me-1"></i>New prediction</a>
+</div>
+
+{% if synthetic %}
+<div class="banner demo"><i class="bi bi-exclamation-triangle-fill mt-1"></i>
+  <div><strong>Synthetic demo data.</strong> Every figure on this page comes from artificially generated records, not a real mess.
+  Upload your own CSV on the <a href="{{ url_for('dataset') }}">Dataset</a> page to see real numbers.</div></div>
+{% endif %}
+{% if stale %}
+<div class="banner info"><i class="bi bi-info-circle-fill mt-1"></i>
+  <div>The dataset changed after the model was last trained. <a href="{{ url_for('performance') }}">Retrain the model</a> so predictions use the current data.</div></div>
+{% endif %}
+
+{% if ds.error %}
+  <div class="alert alert-danger">{{ ds.error }} <a href="{{ url_for('dataset') }}">Open Dataset page</a></div>
+{% elif not summary %}
+  <div class="card"><div class="empty-state">
+    <i class="bi bi-database-exclamation"></i>
+    <h2 class="h4">{% if ds.exists %}The dataset has no valid rows{% else %}No dataset yet{% endif %}</h2>
+    <p class="text-secondary mb-3">Upload a CSV of past meals, or generate a clearly labelled synthetic demo dataset to explore the app.</p>
+    <a class="btn btn-brand" href="{{ url_for('dataset') }}">Go to Dataset</a>
+  </div></div>
+{% else %}
+{% set t = summary.totals %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3 col-xxl"><div class="card kpi"><div class="label"><span class="icon"><i class="bi bi-people"></i></span>Students served</div>
+    <div class="value">{{ '{:,}'.format(t.student_meals) }}</div><div class="sub">student-meals · avg {{ '%.0f'|format(t.avg_students) }} per meal</div></div></div>
+  <div class="col-6 col-xl-3 col-xxl"><div class="card kpi"><div class="label"><span class="icon"><i class="bi bi-pot"></i></span>Food prepared</div>
+    <div class="value">{{ '{:,.1f}'.format(t.prepared) }}<span class="unit">kg</span></div><div class="sub">total cooked</div></div></div>
+  <div class="col-6 col-xl-3 col-xxl"><div class="card kpi waste"><div class="label"><span class="icon"><i class="bi bi-trash3"></i></span>Food wasted</div>
+    <div class="value">{{ '{:,.1f}'.format(t.wasted) }}<span class="unit">kg</span></div><div class="sub">leftover / discarded</div></div></div>
+  <div class="col-6 col-xl-3 col-xxl"><div class="card kpi"><div class="label"><span class="icon"><i class="bi bi-cup-hot"></i></span>Food consumed</div>
+    <div class="value">{{ '{:,.1f}'.format(t.consumed) }}<span class="unit">kg</span></div><div class="sub">prepared − wasted</div></div></div>
+  {% set tier = t.wastage_pct|tier %}
+  <div class="col-12 col-xl-12 col-xxl"><div class="card kpi {{ 'waste' if tier[0]=='danger' else ('warn' if tier[0]=='warning' else '') }}">
+    <div class="label"><span class="icon"><i class="bi bi-percent"></i></span>Wastage</div>
+    <div class="value">{{ '%.2f'|format(t.wastage_pct) }}<span class="unit">%</span></div>
+    <div class="sub"><span class="badge-soft {{ tier[0] }}">{{ tier[1] }}</span> wasted ÷ prepared</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-8"><div class="card h-100"><div class="card-header">Prepared vs wasted · last {{ chart.daily.labels|length }} days</div>
+    <div class="card-body"><div class="chart-box tall"><canvas id="dailyChart" role="img" aria-label="Daily prepared versus wasted food"></canvas></div></div></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-header">Overall split</div>
+    <div class="card-body d-flex flex-column align-items-center justify-content-center gap-3">
+      <div class="plate-gauge" style="--pct: {{ '%.2f'|format(t.wastage_pct) }}"><div class="hole"><b>{{ '%.1f'|format(t.wastage_pct) }}%</b><span>wasted</span></div></div>
+      <div class="chart-box" style="height:200px;width:100%"><canvas id="splitChart" role="img" aria-label="Consumed versus wasted"></canvas></div>
+    </div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5"><div class="card h-100"><div class="card-header">Meal-wise wastage</div>
+    <div class="card-body"><div class="chart-box"><canvas id="mealChart" role="img" aria-label="Meal-wise prepared versus wasted"></canvas></div>
+      <div class="table-wrap mt-3"><table class="table table-sm mb-0">
+        <thead><tr><th>Meal</th><th class="num">Prepared kg</th><th class="num">Wasted kg</th><th class="num">Wastage %</th></tr></thead>
+        <tbody>{% for m in summary.meal %}<tr><td>{{ m.meal_type }}</td><td class="num">{{ '{:,.1f}'.format(m.prepared) }}</td><td class="num">{{ '{:,.1f}'.format(m.wasted) }}</td>
+          <td class="num"><span class="badge-soft {{ (m.wastage_pct|tier)[0] }}">{{ '%.2f'|format(m.wastage_pct) }}%</span></td></tr>{% endfor %}</tbody></table></div>
+    </div></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-header">Daily summary · latest {{ recent_days|length }} days</div>
+    <div class="card-body p-0"><div class="table-wrap"><table class="table mb-0">
+      <thead><tr><th>Date</th><th class="num">Students</th><th class="num">Prepared kg</th><th class="num">Wasted kg</th><th class="num">Consumed kg</th><th class="num">Wastage %</th></tr></thead>
+      <tbody>{% for r in recent_days %}<tr><td>{{ r.date }}</td><td class="num">{{ '{:,}'.format(r.students|int) }}</td><td class="num">{{ '{:,.1f}'.format(r.prepared) }}</td>
+        <td class="num">{{ '{:,.1f}'.format(r.wasted) }}</td><td class="num">{{ '{:,.1f}'.format(r.consumed) }}</td>
+        <td class="num"><span class="badge-soft {{ (r.wastage_pct|tier)[0] }}">{{ '%.2f'|format(r.wastage_pct) }}%</span></td></tr>{% endfor %}</tbody></table></div></div></div></div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-6 col-lg-3"><a class="card quick-link" href="{{ url_for('predict') }}"><i class="bi bi-magic"></i><div><strong>Predict wastage</strong><div class="small text-secondary">{{ 'Model ready' if model_ready else 'Train model first' }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card quick-link" href="{{ url_for('dataset') }}"><i class="bi bi-table"></i><div><strong>Dataset</strong><div class="small text-secondary">{{ source if ds.exists else 'No dataset' }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card quick-link" href="{{ url_for('performance') }}"><i class="bi bi-graph-up-arrow"></i><div><strong>Model performance</strong>
+    <div class="small text-secondary">{% if metrics %}R² {{ '%.3f'|format(metrics.r2) }}{% else %}Not trained{% endif %}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card quick-link" href="{{ url_for('reports_page') }}"><i class="bi bi-file-earmark-text"></i><div><strong>Reports</strong><div class="small text-secondary">{{ pred_stats.count }} saved prediction{{ '' if pred_stats.count == 1 else 's' }}</div></div></a></div>
+</div>
+{% endblock %}
+
+{% block vendor_scripts %}{% if chart %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>{% endif %}{% endblock %}
+{% block scripts %}{% if chart %}<script id="chart-data" type="application/json">{{ chart|tojson }}</script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>{% endif %}{% endblock %}

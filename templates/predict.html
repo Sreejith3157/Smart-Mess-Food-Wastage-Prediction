@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Predict wastage{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Predict food wastage</h1>
+  <p>Enter the plan for a meal. The trained Random Forest estimates how much will be wasted.</p></div></div>
+
+{% if not model_ready %}
+<div class="banner demo"><i class="bi bi-exclamation-triangle-fill mt-1"></i>
+  <div><strong>No usable model.</strong> {{ model_error }} <a href="{{ url_for('performance') }}">Go to Model performance</a>.</div></div>
+{% endif %}
+{% if stale %}
+<div class="banner info"><i class="bi bi-info-circle-fill mt-1"></i><div>The dataset changed after the model was trained. <a href="{{ url_for('performance') }}">Retrain</a> to use the latest data.</div></div>
+{% endif %}
+{% if synthetic and model_ready %}
+<div class="banner demo"><i class="bi bi-exclamation-triangle-fill mt-1"></i><div><strong>Demo model.</strong> The model was trained on synthetic demo data, so these predictions illustrate the app and are not valid for a real mess.</div></div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header">Meal details</div><div class="card-body">
+      <form method="post" action="{{ url_for('predict') }}" novalidate data-loading-form data-loading-text="Predicting…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label" for="meal_date">Meal date</label>
+          <input type="date" class="form-control {{ 'is-invalid' if errors.meal_date }}" id="meal_date" name="meal_date" value="{{ form.meal_date }}" required>
+          <div class="form-text">Recorded in the history only; it is not a model input.</div>
+          {% if errors.meal_date %}<div class="invalid-feedback">{{ errors.meal_date }}</div>{% endif %}
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6"><label class="form-label" for="meal_type">Meal</label>
+            <select class="form-select {{ 'is-invalid' if errors.meal_type }}" id="meal_type" name="meal_type" required>
+              <option value="" disabled {{ 'selected' if not form.meal_type }}>Select…</option>
+              {% for v in categories.meal_type %}<option {{ 'selected' if form.meal_type == v }}>{{ v }}</option>{% endfor %}</select>
+            {% if errors.meal_type %}<div class="invalid-feedback">{{ errors.meal_type }}</div>{% endif %}</div>
+          <div class="col-sm-6"><label class="form-label" for="menu_type">Menu</label>
+            <select class="form-select {{ 'is-invalid' if errors.menu_type }}" id="menu_type" name="menu_type" required>
+              {% for v in categories.menu_type %}<option {{ 'selected' if form.menu_type == v }}>{{ v }}</option>{% endfor %}</select>
+            {% if errors.menu_type %}<div class="invalid-feedback">{{ errors.menu_type }}</div>{% endif %}</div>
+        </div>
+        <div class="mb-3"><label class="form-label" for="day_type">Day type</label>
+          <select class="form-select {{ 'is-invalid' if errors.day_type }}" id="day_type" name="day_type" required>
+            <option value="" disabled {{ 'selected' if not form.day_type }}>Select…</option>
+            {% for v in categories.day_type %}<option {{ 'selected' if form.day_type == v }}>{{ v }}</option>{% endfor %}</select>
+          <div class="form-text">Suggested from the date; choose Holiday manually.</div>
+          {% if errors.day_type %}<div class="invalid-feedback">{{ errors.day_type }}</div>{% endif %}</div>
+        <div class="mb-3"><label class="form-label" for="students_present">Students expected</label>
+          <input type="number" min="1" max="{{ max_students }}" step="1" class="form-control {{ 'is-invalid' if errors.students_present }}"
+                 id="students_present" name="students_present" value="{{ form.students_present }}" placeholder="e.g. 380" required>
+          {% if errors.students_present %}<div class="invalid-feedback">{{ errors.students_present }}</div>{% endif %}</div>
+        <div class="mb-4"><label class="form-label" for="food_prepared_kg">Food to be prepared (kg)</label>
+          <input type="number" min="{{ min_kg }}" max="{{ max_kg|int }}" step="0.01" class="form-control {{ 'is-invalid' if errors.food_prepared_kg }}"
+                 id="food_prepared_kg" name="food_prepared_kg" value="{{ form.food_prepared_kg }}" placeholder="e.g. 210" required>
+          {% if errors.food_prepared_kg %}<div class="invalid-feedback">{{ errors.food_prepared_kg }}</div>{% endif %}</div>
+        <button class="btn btn-brand w-100" type="submit" {{ 'disabled' if not model_ready }}><i class="bi bi-magic me-1"></i>Predict wastage</button>
+      </form></div></div>
+  </div>
+
+  <div class="col-lg-7">
+    {% if result %}
+    {% set tier = result.wastage_pct|tier %}
+    <div class="card"><div class="card-header d-flex justify-content-between align-items-center">
+      <span>Prediction #{{ result.id }}</span><span class="badge-soft {{ tier[0] }}">{{ tier[1] }} wastage</span></div>
+      <div class="card-body">
+        <div class="d-flex flex-column flex-sm-row align-items-center gap-4 mb-4">
+          <div class="plate-gauge" style="--pct: {{ result.wastage_pct }}"><div class="hole"><b>{{ '%.1f'|format(result.wastage_pct) }}%</b><span>predicted waste</span></div></div>
+          <div class="row g-3 flex-grow-1 w-100 text-center text-sm-start">
+            <div class="col-6"><div class="small text-secondary">Predicted wastage</div><div class="metric-big text-danger">{{ '%.2f'|format(result.predicted_wastage_kg) }}<span class="unit fs-6 text-secondary"> kg</span></div></div>
+            <div class="col-6"><div class="small text-secondary">Estimated consumption</div><div class="metric-big" style="color:var(--leaf)">{{ '%.2f'|format(result.est_consumption_kg) }}<span class="unit fs-6 text-secondary"> kg</span></div></div>
+            <div class="col-6"><div class="small text-secondary">Prepared</div><strong>{{ '%.2f'|format(result.food_prepared_kg) }} kg</strong></div>
+            <div class="col-6"><div class="small text-secondary">Waste per student</div><strong>{{ '%.0f'|format(result.predicted_wastage_kg / result.students_present * 1000) }} g</strong></div>
+          </div>
+        </div>
+        <div class="rec-box mb-3"><div class="fw-semibold mb-1"><i class="bi bi-lightbulb me-1"></i>Recommendation</div>{{ result.recommendation }}</div>
+        {% if result.notes %}<div class="alert alert-warning py-2 mb-3"><i class="bi bi-exclamation-triangle me-1"></i>{{ result.notes }}</div>{% endif %}
+        <p class="small text-secondary mb-0">{{ result.meal_type }} · {{ result.day_type }} · {{ result.menu_type }} menu · {{ result.students_present }} students · {{ result.meal_date }}.
+          Consumption is prepared minus predicted waste. Model trained {{ result.model_trained_at|dt }}. This is a statistical estimate, not a guarantee.</p>
+      </div></div>
+    {% else %}
+    <div class="card h-100"><div class="empty-state"><i class="bi bi-clipboard-data"></i>
+      <h2 class="h5">Your result appears here</h2>
+      <p class="text-secondary mb-0">Fill in the meal details and press <em>Predict wastage</em>. Every prediction is saved to <a href="{{ url_for('reports_page') }}">Reports</a>.</p></div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

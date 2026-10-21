@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Reports</h1><p>Every prediction is stored in a local SQLite database and listed here.</p></div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-outline-secondary" href="{{ url_for('report_csv') }}"><i class="bi bi-filetype-csv me-1"></i>Download CSV</a>
+    <a class="btn btn-brand" href="{{ url_for('report_pdf') }}"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a></div></div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card kpi"><div class="label"><span class="icon"><i class="bi bi-clipboard-data"></i></span>Saved predictions</div><div class="value">{{ stats.count }}</div></div></div>
+  <div class="col-md-4"><div class="card kpi"><div class="label"><span class="icon"><i class="bi bi-percent"></i></span>Average predicted wastage</div>
+    <div class="value">{% if stats.count %}{{ '%.2f'|format(stats.avg_pct) }}<span class="unit">%</span>{% else %}-{% endif %}</div></div></div>
+  <div class="col-md-4"><div class="card kpi waste"><div class="label"><span class="icon"><i class="bi bi-trash3"></i></span>Total predicted wastage</div>
+    <div class="value">{% if stats.count %}{{ '{:,.2f}'.format(stats.total_kg) }}<span class="unit">kg</span>{% else %}-{% endif %}</div></div></div>
+</div>
+
+<div class="card"><div class="card-header">Prediction history{% if stats.count > predictions|length %} <span class="small text-secondary fw-normal">· showing latest {{ predictions|length }}; downloads contain all {{ stats.count }}</span>{% endif %}</div>
+  {% if predictions %}
+  <div class="card-body p-0"><div class="table-wrap"><table class="table table-hover mb-0">
+    <thead><tr><th>#</th><th>Created</th><th>Meal date</th><th>Meal</th><th>Day</th><th>Menu</th><th class="num">Students</th><th class="num">Prepared kg</th><th class="num">Predicted waste kg</th><th class="num">Consumption kg</th><th class="num">Waste %</th><th>Data source</th></tr></thead>
+    <tbody>{% for p in predictions %}{% set t = p.wastage_pct|tier %}<tr>
+      <td><a href="{{ url_for('predict', result=p.id) }}">{{ p.id }}</a></td><td class="text-nowrap">{{ p.created_at|dt }}</td><td>{{ p.meal_date }}</td><td>{{ p.meal_type }}</td><td>{{ p.day_type }}</td><td>{{ p.menu_type }}</td>
+      <td class="num">{{ p.students_present }}</td><td class="num">{{ '%.2f'|format(p.food_prepared_kg) }}</td><td class="num">{{ '%.2f'|format(p.predicted_wastage_kg) }}</td>
+      <td class="num">{{ '%.2f'|format(p.est_consumption_kg) }}</td><td class="num"><span class="badge-soft {{ t[0] }}">{{ '%.2f'|format(p.wastage_pct) }}%</span></td>
+      <td>{% if p.dataset_source == 'synthetic_demo' %}<span class="badge-soft warning">Synthetic demo</span>{% elif p.dataset_source == 'uploaded' %}<span class="badge-soft secondary">Uploaded</span>{% else %}<span class="badge-soft secondary">Unknown</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div></div>
+  {% else %}
+  <div class="empty-state"><i class="bi bi-clipboard"></i><h2 class="h5">No predictions yet</h2>
+    <p class="text-secondary mb-3">Make a prediction and it will be saved here automatically.</p><a class="btn btn-brand" href="{{ url_for('predict') }}">Make a prediction</a></div>
+  {% endif %}
+</div>
+<p class="small text-secondary mt-3">The PDF report also includes dataset summary statistics and the saved model performance metrics.</p>
+{% endblock %}
